@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#1B4D7E"/>
+
+  <!-- Subtle warm glow bottom-right -->
+  <radialGradient id="glow" cx="85%" cy="80%" r="55%">
+    <stop offset="0%" stop-color="#E8B14F" stop-opacity="0.18"/>
+    <stop offset="100%" stop-color="#1B4D7E" stop-opacity="0"/>
+  </radialGradient>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Cream stripe at bottom -->
+  <rect y="540" width="1200" height="90" fill="#FAF7F2" opacity="0.06"/>
+
+  <!-- Open book icon (large, top-left decorative) -->
+  <g opacity="0.12" transform="translate(820, 60) scale(8)">
+    <path d="M5 10 Q5 9 6 9 L14 9.5 L14 23 L6 22.5 Q5 22.5 5 21.5 Z" fill="white"/>
+    <path d="M18 9.5 L26 9 Q27 9 27 10 L27 21.5 Q27 22.5 26 22.5 L18 23 Z" fill="white"/>
+    <path d="M14 9.5 L14 23 Q15.5 22 16 22 Q16.5 22 18 23 L18 9.5 Q16.5 8.5 14 9.5 Z" fill="white" opacity="0.5"/>
+  </g>
+
+  <!-- School name -->
+  <text x="100" y="220"
+    font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+    font-weight="800"
+    font-size="108"
+    letter-spacing="-3"
+    fill="white">BOERSEMA SKOOL</text>
+
+  <!-- Tagline -->
+  <text x="104" y="290"
+    font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+    font-weight="400"
+    font-size="38"
+    fill="rgba(255,255,255,0.6)"
+    letter-spacing="0.5">Classical Conversations · Foundations</text>
+
+  <!-- Divider line -->
+  <line x1="100" y1="340" x2="700" y2="340" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+
+  <!-- Subject colour dots — 110px spacing so labels don't overlap -->
+  <circle cx="100" cy="400" r="30" fill="#C44536"/>
+  <circle cx="210" cy="400" r="30" fill="#5BA84A"/>
+  <circle cx="320" cy="400" r="30" fill="#8B4789"/>
+  <circle cx="430" cy="400" r="30" fill="#E8B14F"/>
+  <circle cx="540" cy="400" r="30" fill="#4A90A4"/>
+  <circle cx="650" cy="400" r="30" fill="#4F8C5C"/>
+  <circle cx="760" cy="400" r="30" fill="#B25D44"/>
+  <circle cx="870" cy="400" r="30" fill="#D4847C"/>
+  <circle cx="980" cy="400" r="30" fill="#5B6EAE"/>
+
+  <!-- Subject labels under dots -->
+  <text x="100"  y="456" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" fill="rgba(255,255,255,0.55)">Geskied.</text>
+  <text x="210"  y="456" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" fill="rgba(255,255,255,0.55)">Wet.</text>
+  <text x="320"  y="456" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" fill="rgba(255,255,255,0.55)">Latyn</text>
+  <text x="430"  y="456" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" fill="rgba(255,255,255,0.55)">Wisk.</text>
+  <text x="540"  y="456" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" fill="rgba(255,255,255,0.55)">Engels</text>
+  <text x="650"  y="456" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" fill="rgba(255,255,255,0.55)">Aardr.</text>
+  <text x="760"  y="456" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" fill="rgba(255,255,255,0.55)">Tydlyn</text>
+  <text x="870"  y="456" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" fill="rgba(255,255,255,0.55)">Kuns</text>
+  <text x="980"  y="456" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" fill="rgba(255,255,255,0.55)">Bybel</text>
+
+  <!-- URL bottom right -->
+  <text x="1100" y="600" text-anchor="end"
+    font-family="Arial, sans-serif"
+    font-size="24"
+    fill="rgba(255,255,255,0.3)"
+    letter-spacing="0.5">boersema.vercel.app</text>
+
+</svg>
