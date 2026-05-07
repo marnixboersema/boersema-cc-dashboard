@@ -1,0 +1,494 @@
+/* === Boersema CC Foundations Dashboard === */
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+  --bg: #FAF7F2;
+  --text: #2A2A2A;
+  --text-muted: #6B6B6B;
+  --accent: #1B4D7E;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --radius: 16px;
+
+  --c-history: #C44536;
+  --c-science: #5BA84A;
+  --c-latin: #8B4789;
+  --c-math: #E8B14F;
+  --c-english: #4A90A4;
+  --c-geography: #4F8C5C;
+  --c-timeline: #B25D44;
+  --c-finearts: #D4847C;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: clamp(16px, 1.6vw, 18px);
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+#app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.loading {
+  text-align: center;
+  padding: 4rem 1rem;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+.error {
+  background: #FDECEA;
+  border: 1px solid #C44536;
+  color: #8B2E22;
+  padding: 1rem;
+  border-radius: var(--radius);
+  margin: 1rem 0;
+}
+
+/* === HOME — Header === */
+
+.home-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(42, 42, 42, 0.08);
+}
+
+.school-title {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.25rem;
+  color: var(--accent);
+}
+
+.cycle-week {
+  font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.cycle-week strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.week-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.week-nav button {
+  background: white;
+  border: 1px solid rgba(42, 42, 42, 0.15);
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  color: var(--text);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.week-nav button:active {
+  transform: scale(0.96);
+}
+
+.week-nav button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* === HOME — Subject grid === */
+
+.subjects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+}
+
+@media (min-width: 768px) {
+  .subjects-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.subject-card {
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  color: white;
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  font-weight: 600;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-align: center;
+}
+
+.subject-card:not(.ghost):active {
+  transform: scale(0.97);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.subject-card.ghost {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.subject-icon {
+  font-size: clamp(2.5rem, 6vw, 3.5rem);
+  line-height: 1;
+}
+
+.subject-name {
+  letter-spacing: 0.02em;
+}
+
+/* === SUBJECT PAGE === */
+
+.subject-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: clamp(1.5rem, 4vw, 2rem);
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(42, 42, 42, 0.08);
+}
+
+.back-button {
+  background: white;
+  border: 1px solid rgba(42, 42, 42, 0.15);
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
+  box-shadow: var(--card-shadow);
+  font-size: 1rem;
+}
+
+.back-button:active {
+  transform: scale(0.96);
+}
+
+.subject-title {
+  flex: 1;
+  margin: 0;
+  font-size: clamp(1.3rem, 3.5vw, 2rem);
+  font-weight: 700;
+}
+
+.subject-title .week-tag {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-right: 0.5rem;
+}
+
+.subject-color-bar {
+  height: 6px;
+  border-radius: 3px;
+  margin-bottom: 1.5rem;
+}
+
+.section {
+  margin-bottom: clamp(1.5rem, 3.5vw, 2.5rem);
+}
+
+.section-title {
+  font-size: clamp(1.1rem, 2.4vw, 1.3rem);
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-rule {
+  border: none;
+  height: 1px;
+  background: rgba(42, 42, 42, 0.1);
+  margin: 0 0 1rem;
+}
+
+.section-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+/* === Memory work === */
+
+.memory-text {
+  background: white;
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--card-shadow);
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.memory-afrikaans {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(42, 42, 42, 0.15);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* === Videos === */
+
+.video-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cc-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: white;
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--card-shadow);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.cc-link:active {
+  transform: scale(0.99);
+}
+
+.cc-link .label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cc-link .label-small {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cc-link .arrow {
+  font-size: 1.4rem;
+}
+
+.youtube-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: black;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+}
+
+.youtube-wrapper iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* === Audio player === */
+
+.audio-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.audio-player {
+  background: white;
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--card-shadow);
+}
+
+.audio-title {
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.audio-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.audio-play {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.audio-play:active {
+  transform: scale(0.95);
+}
+
+.audio-seek {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(42, 42, 42, 0.15);
+  border-radius: 3px;
+  outline: none;
+}
+
+.audio-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.audio-seek::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.audio-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  min-width: 80px;
+  text-align: right;
+}
+
+.audio-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.speed-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.speed-buttons button {
+  border: 1px solid rgba(42, 42, 42, 0.2);
+  border-radius: 10px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.9rem;
+  background: white;
+  min-width: 48px;
+  font-weight: 500;
+}
+
+.speed-buttons button.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.loop-toggle {
+  border: 1px solid rgba(42, 42, 42, 0.2);
+  border-radius: 10px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  background: white;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.loop-toggle.active {
+  background: #5BA84A;
+  color: white;
+  border-color: #5BA84A;
+}
+
+/* === PDF buttons === */
+
+.pdf-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.pdf-button {
+  background: white;
+  border: 1px solid rgba(42, 42, 42, 0.15);
+  border-radius: 12px;
+  padding: 0.85rem 1.25rem;
+  box-shadow: var(--card-shadow);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.pdf-button:active {
+  transform: scale(0.98);
+}
+
+.pdf-button .pdf-icon {
+  font-size: 1.2rem;
+}
