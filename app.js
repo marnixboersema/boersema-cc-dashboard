@@ -11,6 +11,7 @@ const SUBJECTS = [
   { key: 'Geography',       name: 'Geography', icon: '🌍', color: 'var(--c-geography)' },
   { key: 'Timeline',        name: 'Tydlyn',    icon: '⏳', color: 'var(--c-timeline)' },
   { key: 'Fine Arts',       name: 'Kuns',      icon: '🎨', color: 'var(--c-finearts)' },
+  { key: 'Bible',           name: 'Bybel',     icon: '✝️', color: 'var(--c-bible)' },
 ];
 
 const MIN_WEEK = 1;
@@ -25,6 +26,16 @@ const state = {
 };
 
 const root = document.getElementById('app');
+
+// Tracks the currently playing intro audio so we can stop it on navigation.
+let introAudio = null;
+
+function stopIntroAudio() {
+  if (introAudio) {
+    introAudio.pause();
+    introAudio = null;
+  }
+}
 
 // === Data loading ===
 
@@ -97,7 +108,9 @@ function parseYouTubeId(url) {
 }
 
 function youtubeEmbedUrl(id) {
-  return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&playsinline=1`;
+  // playsinline=1: inline on iOS (user taps play manually)
+  // rel=0: no suggested videos from other channels when video ends
+  return `https://www.youtube.com/embed/${id}?rel=0&playsinline=1`;
 }
 
 // === Filename helpers ===
@@ -105,6 +118,29 @@ function youtubeEmbedUrl(id) {
 function stripExtension(filename) {
   if (!filename) return '';
   return filename.replace(/\.[^.]+$/, '');
+}
+
+// Opens a PDF in a new window and triggers the print dialog.
+// Fetches as a blob first so the window is same-origin, which lets w.print() work.
+// Falls back to direct URL if fetch fails (e.g. CORS).
+function printPdf(url) {
+  const w = window.open('', '_blank');
+  if (!w) { window.open(url, '_blank'); return; }
+
+  fetch(url)
+    .then(r => r.blob())
+    .then(blob => {
+      const blobUrl = URL.createObjectURL(blob);
+      w.location.replace(blobUrl);
+      setTimeout(() => {
+        try { w.focus(); w.print(); } catch (e) {}
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      }, 1200);
+    })
+    .catch(() => {
+      w.location.href = url;
+      setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 1500);
+    });
 }
 
 function formatTime(seconds) {
@@ -215,13 +251,17 @@ function renderSubjectPage() {
   const lesson = lessonForSubject(state.subjectKey);
   const fields = lesson?.fields || {};
 
+  const introFiles = Array.isArray(fields['Intro Audio']) ? fields['Intro Audio'] : [];
+  const introFile = introFiles[0] || null;
+
   const header = el('header', { class: 'subject-header' },
     el('button', { class: 'back-button', onclick: goHome }, '← Terug'),
     el('h2', { class: 'subject-title' },
       el('span', { class: 'week-tag' },
         `Week ${String(state.week).padStart(2, '0')} ·`),
       ` ${meta.name}`
-    )
+    ),
+    introFile ? buildIntroSpeaker(introFile, meta.color) : null
   );
   root.appendChild(header);
 
@@ -318,15 +358,24 @@ function renderSubjectPage() {
   if (pdfFiles.length > 0) {
     const list = el('div', { class: 'pdf-list' });
     for (const file of pdfFiles) {
+      const label = stripExtension(file.filename || 'Lêer');
       list.appendChild(
-        el('a', {
-          class: 'pdf-button',
-          href: file.url,
-          target: '_blank',
-          rel: 'noopener noreferrer',
-        },
-          el('span', { class: 'pdf-icon' }, '📄'),
-          stripExtension(file.filename || 'Lêer')
+        el('div', { class: 'pdf-item' },
+          el('a', {
+            class: 'pdf-button',
+            href: file.url,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            'aria-label': label + ' oopmaak',
+          },
+            el('span', { class: 'pdf-icon' }, '📄'),
+            label
+          ),
+          el('button', {
+            class: 'pdf-print',
+            'aria-label': label + ' druk',
+            onclick: () => printPdf(file.url),
+          }, '🖨️')
         )
       );
     }
@@ -349,6 +398,42 @@ function renderSubjectPage() {
       )
     );
   }
+}
+
+function buildIntroSpeaker(file, accentColor) {
+  const btn = el('button', {
+    class: 'intro-speaker',
+    style: { background: accentColor },
+    'aria-label': 'Speel intro-oudio',
+  }, '🔈');
+
+  btn.addEventListener('click', () => {
+    // First tap: create and immediately play (iOS requires play() within the gesture).
+    if (!introAudio) {
+      introAudio = new Audio(file.url);
+      introAudio.addEventListener('ended', () => {
+        introAudio = null;
+        btn.textContent = '🔈';
+        btn.classList.remove('playing');
+      });
+      introAudio.play().catch(err => console.warn('intro play failed', err));
+      btn.textContent = '🔊';
+      btn.classList.add('playing');
+      return;
+    }
+    // Subsequent taps: toggle pause/play.
+    if (introAudio.paused) {
+      introAudio.play().catch(err => console.warn('intro play failed', err));
+      btn.textContent = '🔊';
+      btn.classList.add('playing');
+    } else {
+      introAudio.pause();
+      btn.textContent = '🔈';
+      btn.classList.remove('playing');
+    }
+  });
+
+  return btn;
 }
 
 function buildAudioPlayer(file) {
@@ -455,17 +540,22 @@ function navigateWeek(delta) {
 }
 
 function openSubject(key) {
+  stopIntroAudio();
   state.subjectKey = key;
   state.view = 'subject';
   render();
 }
 
 function goHome() {
+  stopIntroAudio();
   state.view = 'home';
   state.subjectKey = null;
   render();
 }
 
 // === Boot ===
+
+// Prevent long-press context menus and right-click (kiosk mode).
+document.addEventListener('contextmenu', e => e.preventDefault());
 
 loadLessons();

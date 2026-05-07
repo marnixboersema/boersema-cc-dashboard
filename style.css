@@ -3,6 +3,10 @@
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  /* Prevent text selection and long-press callout menus on touch devices */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 :root {
@@ -22,6 +26,7 @@
   --c-geography: #4F8C5C;
   --c-timeline: #B25D44;
   --c-finearts: #D4847C;
+  --c-bible: #5B6EAE;
 }
 
 html, body {
@@ -34,6 +39,10 @@ html, body {
   line-height: 1.5;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  /* Prevent pull-to-refresh and rubber-band scroll bounce */
+  overscroll-behavior: none;
+  /* Safe area padding for black-translucent status bar */
+  padding-top: env(safe-area-inset-top);
 }
 
 button {
@@ -205,6 +214,35 @@ a {
   transform: scale(0.96);
 }
 
+.intro-speaker {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  border-radius: 50%;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.15s ease;
+  margin-left: auto;
+}
+
+.intro-speaker:active {
+  transform: scale(0.92);
+}
+
+.intro-speaker.playing {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0.15); }
+  50%       { box-shadow: 0 0 0 10px rgba(0,0,0,0); }
+}
+
 .subject-title {
   flex: 1;
   margin: 0;
@@ -253,6 +291,8 @@ a {
 /* === Memory work === */
 
 .memory-text {
+  -webkit-user-select: text;
+  user-select: text;
   background: white;
   border-radius: var(--radius);
   padding: 1.25rem 1.5rem;
@@ -471,10 +511,16 @@ a {
   gap: 0.75rem;
 }
 
+.pdf-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .pdf-button {
   background: white;
   border: 1px solid rgba(42, 42, 42, 0.15);
-  border-radius: 12px;
+  border-radius: 12px 0 0 12px;
   padding: 0.85rem 1.25rem;
   box-shadow: var(--card-shadow);
   display: inline-flex;
@@ -491,4 +537,24 @@ a {
 
 .pdf-button .pdf-icon {
   font-size: 1.2rem;
+}
+
+.pdf-print {
+  background: white;
+  border: 1px solid rgba(42, 42, 42, 0.15);
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+  padding: 0.85rem 1rem;
+  box-shadow: var(--card-shadow);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.pdf-print:active {
+  transform: scale(0.96);
+  background: #f0f0f0;
 }

@@ -1,0 +1,9 @@
+{
+  "name": "Boersema Skool",
+  "short_name": "Skool",
+  "display": "standalone",
+  "start_url": "/",
+  "background_color": "#FAF7F2",
+  "theme_color": "#1B4D7E",
+  "orientation": "landscape"
+}
