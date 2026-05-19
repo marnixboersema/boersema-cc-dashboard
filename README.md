@@ -22,12 +22,13 @@ Skep 'n nuwe basis genaamd `Boersema CC Foundations`. Voeg 'n tabel `Lessons` me
 | `ID` | Formula | `"C" & {Cycle} & "W" & {Week} & "-" & {Subject}` |
 | `Cycle` | Number (integer) | 1, 2, 3 |
 | `Week` | Number (integer) | 1–24 |
-| `Subject` | Single Select | `History`, `Science`, `English Grammar`, `Latin`, `Math`, `Geography`, `Timeline`, `Fine Arts` |
+| `Subject` | Single Select | `History`, `Science`, `English Grammar`, `Latin`, `Math`, `Geography`, `Timeline`, `Fine Arts`, `Bible` |
 | `Memory Work` | Long text | |
-| `Memory Work (Afrikaans)` | Long text | |
+| `Memory Work (Afrikaans)` | Long text | Opsioneel — leeg vir Engels-alleen |
 | `CC Connected URL` | URL | |
 | `CC Connected Title` | Single line text | |
 | `YouTube URLs` | Long text | Een URL per reël |
+| `Intro Audio` | Attachment (meervoudig) | Kort intro-oudio (speaker-knoppie op subject-bladsy) |
 | `Audio Files` | Attachment (meervoudig) | MP3's |
 | `PDFs` | Attachment (meervoudig) | Werkkaarte, kleurprente |
 | `Notes` | Long text | Privaat — wys nie op dashboard nie |
@@ -93,6 +94,8 @@ Na deployment kry jy 'n URL soos `boersema-cc-dashboard.vercel.app`. Voeg gerus 
 
 ## 5. Inhoud byvoeg
 
+### Handmatig (vir 'n enkele veld of regstelling)
+
 1. Maak Airtable oop
 2. Voeg 'n nuwe ry by met die regte `Cycle`, `Week`, en `Subject`
 3. Vul die memory work, video-URL's, en heg MP3's of PDF's aan
@@ -100,12 +103,45 @@ Na deployment kry jy 'n URL soos `boersema-cc-dashboard.vercel.app`. Voeg gerus 
 
 Om die "huidige week" te verander, merk die `Active`-vinkblokkie op die regte ry.
 
+### Outomaties via die `cc-ingest`-skill (vir 'n hele week)
+
+Daar's 'n Claude Code-skill by [.claude/skills/cc-ingest/](.claude/skills/cc-ingest/) wat 'n hele week se inhoud van Google Drive na Airtable verwerk.
+
+**Werkstroom:**
+
+1. Clarinda gooi alles vir die week in 'n Google Drive-folder soos `CC Inbox/C2W12/`:
+   - Sandbox-tydskrif PDF (heel, ongesplit)
+   - Foto/scan van die CC Foundations Guide-bladsy vir daardie week
+   - Audio-files (MP3/M4A/WAV) per vak
+   - Optioneel: `intro.mp3` (algemeen) of `intro-history.mp3` (per vak)
+2. In Claude Code in hierdie repo: *"verwerk C2W12"*
+3. Die skill:
+   - Klassifiseer files in die folder
+   - Split die Sandbox-PDF per vak (met die `pdf`-skill)
+   - Onttrek memory work-Q+A uit die Guide-bladsy
+   - Soek CC Connected URLs op in [data/ccconnected-urls.csv](.claude/skills/cc-ingest/data/ccconnected-urls.csv)
+   - Pas audio-files toe by die regte vakke
+   - Laai alles op na Airtable via die `uploadAttachment`-eindpunt
+   - Rapporteer wat opgelaai, oorgeslaan, of ontbreek het
+
+**Vereistes:**
+
+- `.env` met `AIRTABLE_PAT` (met `data.records:write` scope) en `AIRTABLE_BASE_ID`
+- Google Drive MCP gekoppel in Claude Code
+- `data/ccconnected-urls.csv` gevul met die week se URLs (eens-per-siklus werk)
+
+Die skill **oorskryf nie** bestaande Airtable-velde nie — vra eksplisiet "vervang" indien jy dit wil doen.
+
 ## Lêerstruktuur
 
 ```
 boersema-cc-dashboard/
 ├── api/
-│   └── lessons.js      # Vercel serverless proxy na Airtable
+│   └── lessons.js                              # Vercel proxy na Airtable
+├── .claude/skills/cc-ingest/                   # Skill vir Drive → Airtable ingestion
+│   ├── SKILL.md
+│   ├── scripts/airtable-upload.mjs
+│   └── data/ccconnected-urls.csv
 ├── index.html
 ├── style.css
 ├── app.js
