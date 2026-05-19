@@ -52,12 +52,45 @@ const HEADERS = {
   'Content-Type': 'application/json',
 };
 
+// Node 24's fetch occasionally fails with ETIMEDOUT against api.airtable.com
+// even though the network is fine (happy-eyeballs glitches between IPv4/IPv6
+// candidates). Retry transient network errors with exponential backoff and
+// give each attempt a clean timeout so a bad IP doesn't hang forever.
+async function fetchWithRetry(url, options = {}, { attempts = 4, timeoutMs = 15000 } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const r = await fetch(url, { ...options, signal: ctrl.signal });
+      clearTimeout(t);
+      return r;
+    } catch (err) {
+      clearTimeout(t);
+      lastErr = err;
+      const isTransient =
+        err.name === 'AbortError' ||
+        err.code === 'ETIMEDOUT' ||
+        err.code === 'ECONNRESET' ||
+        err.code === 'EHOSTUNREACH' ||
+        err.cause?.code === 'ETIMEDOUT' ||
+        err.cause?.code === 'ECONNRESET' ||
+        err.cause?.code === 'EHOSTUNREACH' ||
+        /fetch failed/i.test(err.message || '');
+      if (!isTransient || i === attempts - 1) throw err;
+      const backoff = 500 * Math.pow(2, i);  // 500, 1000, 2000 ms
+      await new Promise(res => setTimeout(res, backoff));
+    }
+  }
+  throw lastErr;
+}
+
 async function findRecord(cycle, week, subject) {
   const id = `C${cycle}W${week}-${subject}`;
   const url = new URL(`https://api.airtable.com/v0/${BASE}/${encodeURIComponent(TABLE)}`);
   url.searchParams.set('filterByFormula', `{ID}='${id.replace(/'/g, "\\'")}'`);
   url.searchParams.set('maxRecords', '1');
-  const r = await fetch(url, { headers: HEADERS });
+  const r = await fetchWithRetry(url, { headers: HEADERS });
   if (!r.ok) throw new Error(`find ${id}: ${r.status} ${await r.text()}`);
   const data = await r.json();
   return data.records?.[0] || null;
@@ -65,7 +98,7 @@ async function findRecord(cycle, week, subject) {
 
 async function patchFields(recordId, fields) {
   const url = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent(TABLE)}/${recordId}`;
-  const r = await fetch(url, {
+  const r = await fetchWithRetry(url, {
     method: 'PATCH',
     headers: HEADERS,
     body: JSON.stringify({ fields }),
@@ -90,7 +123,8 @@ async function uploadAttachment(recordId, fieldName, filePath, filename) {
   }
   const name = filename || filePath.split('/').pop();
   const url = `https://content.airtable.com/v0/${BASE}/${recordId}/${encodeURIComponent(fieldName)}/uploadAttachment`;
-  const r = await fetch(url, {
+  // Larger timeout for attachment uploads (file body can be megabytes).
+  const r = await fetchWithRetry(url, {
     method: 'POST',
     headers: HEADERS,
     body: JSON.stringify({
@@ -98,7 +132,7 @@ async function uploadAttachment(recordId, fieldName, filePath, filename) {
       file: buf.toString('base64'),
       filename: name,
     }),
-  });
+  }, { attempts: 3, timeoutMs: 60000 });
   if (!r.ok) {
     const text = await r.text();
     if (r.status === 401 || r.status === 403) {
