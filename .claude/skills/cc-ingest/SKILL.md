@@ -71,6 +71,14 @@ MP4 files in the folder are NOT auto-uploaded — Airtable has no video attachme
 
 Lookup table at `.claude/skills/cc-ingest/data/ccconnected-urls.csv` with columns `Cycle,Week,Subject,URL,Title`. URLs use the form `https://ccconnected.com/content/asset/fullScreen/<id>`. Marnix populates this CSV per cycle (one-time work). If a row is missing for a subject, skip its CC URL field and report it as missing at the end.
 
+### CC Connected per-subject audios
+
+Lookup table at `.claude/skills/cc-ingest/data/ccconnected-audio-urls.csv` with columns `Cycle,Week,Subject,URL,Title,EmbedUrl`. The `EmbedUrl` is the direct `classicalconversations.widen.net` MP3 download URL — publicly fetchable, no CC Connected auth needed for the download itself.
+
+These audios are CC Foundations' per-subject "Memory Work Audio" tracks (short, ~150–900 KB each — just that subject's memory work, not the whole week). They go to the **`Audio Files`** field. Per cycle this needs a one-time browser-console scrape (see the audio-feed snippet in the chat history); after that, the skill looks up + downloads + uploads automatically.
+
+> Fine Arts and Bible are not in CC's standard memory work audio set, so those rows will be missing from this CSV. Skip without warning for those two subjects.
+
 ### Airtable schema (reference — confirmed live)
 
 Table: `Lessons`. Each row has formula field `ID = "C" & Cycle & "W" & Week & "-" & Subject`, e.g. `C2W12-History`.
@@ -195,6 +203,28 @@ If two audios score high for the same subject, take the longer one and flag the 
 Read `.claude/skills/cc-ingest/data/ccconnected-urls.csv`. For each subject with a matching row, add `CC Connected URL` and `CC Connected Title` to the manifest.
 
 Subjects with no row in the CSV: skip those fields, add to a "missing CC URLs" list to report at the end.
+
+### Step 8b — Look up + download CC per-subject Memory Work Audio
+
+Read `.claude/skills/cc-ingest/data/ccconnected-audio-urls.csv`. For each subject with a matching row, download the MP3 from the `EmbedUrl` (e.g. `https://classicalconversations.widen.net/content/.../mp3/...mp3?u=zq6gep`) via direct curl — no auth needed for the widen CDN, only for the CC API the URL came from.
+
+Save each download to `/tmp/cc-ingest/C{cycle}W{week}/audio-per-subject/NN_Subject - C{cycle}W{week} - Memory Work Audio.mp3` (numbered to match Marnix's existing convention: 01_History, 02_Science, ..., 07_Timeline).
+
+Add these to the manifest as `Audio Files` attachments. **Fine Arts and Bible have no entry — skip without warning.**
+
+### Step 8c — Read urls.txt (YouTube videos)
+
+If `urls.txt` exists in the week folder, parse it. Format: one `<subject>: <url>` line per entry, `#`-prefixed lines are comments. The first colon separates subject from URL (URLs contain `://`).
+
+Normalize subject names case-insensitively, with aliases:
+```
+history → History    science → Science          latin → Latin
+math, maths → Math   english, eng → English Grammar
+geography, geo → Geography                       timeline → Timeline
+art, arts, fine art → Fine Arts                  bible → Bible
+```
+
+Multiple lines per subject are combined (one URL per line) and written to that subject's `YouTube URLs` field. Existing content in that field is preserved unless `overwrite: true` is set.
 
 ### Step 9 — Build the manifest
 

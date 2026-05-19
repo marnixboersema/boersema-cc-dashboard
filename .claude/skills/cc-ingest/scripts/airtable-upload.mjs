@@ -237,9 +237,23 @@ async function applyManifest(manifest) {
 
       for (const [fieldName, files] of Object.entries(spec.attachments || {})) {
         if (!Array.isArray(files) || files.length === 0) continue;
-        if (!overwrite && fieldHasContent(current[fieldName])) {
+        const existed = fieldHasContent(current[fieldName]);
+        if (!overwrite && existed) {
           entry.skipped.push(`attachment "${fieldName}" (already has content)`);
           continue;
+        }
+        // With overwrite=true, REPLACE existing attachments rather than append:
+        // PATCH the field to [] first, then upload the new files.
+        // (The uploadAttachment endpoint appends, so without this step
+        // a re-run leaves the old content alongside the new.)
+        if (overwrite && existed) {
+          try {
+            await patchFields(rec.id, { [fieldName]: [] });
+            entry.actions.push(`cleared existing "${fieldName}"`);
+          } catch (err) {
+            entry.errors.push(`clear ${fieldName}: ${err.message}`);
+            continue;
+          }
         }
         for (const f of files) {
           try {
