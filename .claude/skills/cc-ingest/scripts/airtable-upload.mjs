@@ -204,14 +204,23 @@ async function applyManifest(manifest) {
       const overwrite = spec.overwrite ?? defaultOverwrite;
       const current = rec.fields || {};
 
+      // Manifest semantics:
+      //   - field omitted from spec.fields → don't touch
+      //   - value === "" or null → clear the field (only if overwrite allowed)
+      //   - value is a real value → write it (respecting overwrite policy)
       const fieldsToPatch = {};
       for (const [k, v] of Object.entries(spec.fields || {})) {
-        if (v == null || v === '') continue;
-        if (!overwrite && fieldHasContent(current[k])) {
+        const wantsClear = v === '' || v == null;
+        const hasContent = fieldHasContent(current[k]);
+        if (!overwrite && hasContent) {
           entry.skipped.push(`field "${k}" (already has content)`);
           continue;
         }
-        fieldsToPatch[k] = v;
+        if (wantsClear && !hasContent) {
+          // Nothing to clear, nothing to write.
+          continue;
+        }
+        fieldsToPatch[k] = wantsClear ? '' : v;
       }
       if (Object.keys(fieldsToPatch).length > 0) {
         await patchFields(rec.id, fieldsToPatch);

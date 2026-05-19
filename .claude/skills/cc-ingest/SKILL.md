@@ -40,10 +40,17 @@ Per week, a subfolder named like `C2W12` (Cycle 2 Week 12). Inside the week fold
 
 ### Intro audio convention
 
-- `intro.mp3` (or .m4a/.wav) → applied to all 9 subjects that have content
-- `intro-history.mp3`, `intro-science.mp3`, etc. → per-subject override
-- Both can coexist: the generic intro applies to subjects without a specific intro
-- Audio under 5 seconds is suspect — likely a test recording. Flag and ask the user before uploading.
+Every week folder contains **one short intro audio per subject** (Clarinda reads the week's memory work aloud — typically 15–60 seconds per subject). Filenames are unreliable — iPhone Voice Memos defaults to location-based names like `1216 Woodlands Drive 2.m4a`. The skill classifies each audio by **content**, not filename:
+
+1. Run `scripts/classify-intro-audio.py <folder> <memory-work.json>` — it transcribes each audio with Whisper and matches the transcript against the per-subject memory work text.
+2. The output JSON reports a `subject` + `confidence` band (`high`, `medium`, `low`, `none`) per audio.
+3. For `high` confidence → upload to that subject's `Intro Audio` field automatically.
+4. For `medium` confidence → upload but mention the assignment in the final report.
+5. For `low` or `none` confidence, or audio shorter than 5 s → ask the user before uploading. The 5-second cutoff catches the common "iPhone test recording" false positive.
+
+All intro audios go to the **`Intro Audio`** attachment field — never `Audio Files`. (`Audio Files` is reserved for the longer CC memory work song that Marnix may attach separately.)
+
+The skill expects the Whisper model at `~/.cache/cc-ingest/whisper-models/ggml-base.en.bin` and `whisper-cli` on PATH. Run `scripts/setup.sh` once on a new machine to install both.
 
 ### urls.txt convention (for YouTube / extra videos)
 
@@ -137,26 +144,51 @@ Skip Bible and Fine Arts splits — Bible isn't on the Sandbox at all, and Fine 
 
 If a memory-work source file is present (typically a photo of the CC Foundations Guide page for the week), read the image with the Read tool (which supports JPG/PNG) and extract the Q+A pairs per subject. The Guide layout has 8 subjects in a 3×3-ish grid across one page (no Bible).
 
-Marnix's existing pattern (matched in W11, W12, W13):
-- **Memory Work field**: just the subject name as a label, all-caps (e.g. `HISTORY`, `MATH`).
-- **Memory Work (Afrikaans) field**: the actual Q+A content. The dashboard renders this in italic styling — even though the user has chosen English-only content, the italic field is used for body text.
+Convention (decided 2026-05-19, applies to all new ingests):
+- **Memory Work field**: the actual Q+A content. Multi-line text, formatted cleanly.
+- **Memory Work (Afrikaans) field**: leave empty.
 
-Build the (Afrikaans) text as a multi-line block. Example for History:
+Example for History W13:
 
 ```
-Tell me about <topic>.
-<answer paragraph>
+Tell me about the Industrial Revolution.
+Watt's steam engine, Cartwright's power loom, and Whitney's cotton gin spurred the Industrial Revolution that began in the 1760s.
 ```
 
 For subjects with table data (Math Liquid Equivalents, Latin endings, Geography lists), preserve the table structure with line breaks.
 
+> Older weeks (W11–W12) follow an earlier pattern: subject label in `Memory Work`, content in `Memory Work (Afrikaans)`. Don't migrate them automatically — they were Marnix's manual entries. New ingests use the new convention.
+
 If memory work extraction is uncertain for any subject, include only the ones you're confident about and report the rest as missing. Do NOT invent content not visibly on the page.
 
-### Step 7 — Match audio to subjects
+### Step 7 — Classify intro audios
 
-For each per-subject audio file (by filename keyword), assign to that subject's `Audio Files`. For each `intro*.mp3`, assign to `Intro Audio` (generic → all subjects with content; subject-specific → only that subject).
+Write the per-subject memory work text from Step 6 to `/tmp/cc-ingest/C{cycle}W{week}-mw.json`:
 
-If an audio file's subject is ambiguous, ask the user.
+```json
+{"History": "Tell me about ... 1760s.", "Math": "Liquid Equivalents. 8 fluid ounces ...", ...}
+```
+
+Run the classifier:
+
+```bash
+.claude/skills/cc-ingest/scripts/classify-intro-audio.py \
+  /tmp/cc-ingest/C{cycle}W{week}/audios \
+  /tmp/cc-ingest/C{cycle}W{week}-mw.json
+```
+
+(Put the downloaded audio files in a subdirectory so the classifier doesn't pick up the Sandbox PDF or the Guide image.)
+
+The output is a JSON dict keyed by audio filename, each entry with `transcript`, `duration_seconds`, `subject`, `confidence`, `match_counts`, and optionally `warning`.
+
+Decisions per audio:
+- `confidence: high` → assign to that subject's `Intro Audio` without asking.
+- `confidence: medium` → assign and mention the assignment in the final report so Marnix can verify.
+- `confidence: low` or `none`, OR a `warning` is present → ask Marnix before uploading.
+
+All assignments go to **`Intro Audio`** field (never `Audio Files`).
+
+If two audios score high for the same subject, take the longer one and flag the shorter as a possible duplicate.
 
 ### Step 8 — Look up CC Connected URLs
 
