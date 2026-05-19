@@ -11,17 +11,23 @@ The user works in Afrikaans. Reply in Afrikaans. Keep status updates short.
 
 ## What this skill does
 
-For one (Cycle, Week) pair:
+For one (Cycle, Week) pair, populate every Airtable field that can be filled from either CC Connected (always available) or the matching `CC Inbox/C{cycle}W{week}/` folder in Marnix's Google Drive.
 
-1. Find the matching folder in Google Drive
-2. Classify the files in it (Sandbox PDF, memory-work source image, audio, intro audio)
-3. Split the Sandbox PDF per subject if needed
-4. Extract memory work Q+A per subject from the source image/PDF
-5. Look up CC Connected URLs from a CSV
-6. Build a manifest and call `scripts/airtable-upload.mjs apply`
-7. Report what was uploaded, skipped, or missing
+**Always auto-fetched from CC Connected (no Drive needed):**
+- CC URLs (`data/ccconnected-urls.csv`) → `CC Connected URL` + `CC Connected Title`
+- Per-subject Memory Work Audios (`data/ccconnected-audio-urls.csv`) → `Audio Files`
+- Sandbox magazine PDF (`data/ccconnected-sandbox-urls.csv`) → downloaded, split per subject → `PDFs`
 
-The helper script is idempotent — it does NOT overwrite Airtable fields that already have content (unless the user explicitly asks).
+**From the Drive folder, when Clarinda uploads it:**
+- Photo of the CC Foundations Guide page → memory work Q+A → `Memory Work`
+- Per-subject intro recordings (Clarinda reads memory work aloud) → `Intro Audio`
+- `bible*.pdf` → Bible row's `PDFs` (Boersema-specific content, no CC equivalent)
+- `urls.txt` → YouTube embeds → `YouTube URLs`
+- A Sandbox PDF (only used as fallback if the CC download fails)
+
+The skill is partial-friendly: if the Drive folder is missing or empty, the CC-driven fields still upload. Each week's row is created automatically if it doesn't already exist (`createIfMissing: true`).
+
+The helper script (`scripts/airtable-upload.mjs apply`) is idempotent — fields already populated in Airtable are skipped unless the user explicitly asks to overwrite.
 
 ## Inputs
 
@@ -33,10 +39,10 @@ Per week, a subfolder named like `C2W12` (Cycle 2 Week 12). Inside the week fold
 
 - A Sandbox magazine PDF (whole magazine, not yet split per subject)
 - A photo/scan/PDF of the CC Foundations Guide page for that week (contains all subjects' memory-work Q+A)
-- Audio files (MP3/M4A/WAV) — may be one per subject, may have generic names
-- One or more "intro audio" files (parent introducing the subject/week)
+- Audio files (MP3/M4A/WAV) — Clarinda's per-subject intros (she reads memory work aloud)
+- One or more PDFs whose filename starts with **`bible`** (case-insensitive) — Boersema-specific Bible study material for the week. Each is uploaded as-is to Bible's `PDFs` attachment field. Multiple Bible PDFs in one week are all attached.
 - Optionally a `urls.txt` with YouTube/video links per subject (see below)
-- Optionally a `notes.txt` or similar with hand-written notes
+- Optionally a `notes.txt` or similar with hand-written notes (the skill ignores these)
 
 ### Intro audio convention
 
@@ -67,17 +73,17 @@ Subject names are case-insensitive and tolerant of dashboard names (`english gra
 
 MP4 files in the folder are NOT auto-uploaded — Airtable has no video attachment field and direct MP4s can exceed size limits. If Marnix wants a local video served, he should upload it to YouTube and paste the URL in `urls.txt`.
 
-### CC Connected URLs
+### CC Connected lookup tables
 
-Lookup table at `.claude/skills/cc-ingest/data/ccconnected-urls.csv` with columns `Cycle,Week,Subject,URL,Title`. URLs use the form `https://ccconnected.com/content/asset/fullScreen/<id>`. Marnix populates this CSV per cycle (one-time work). If a row is missing for a subject, skip its CC URL field and report it as missing at the end.
+Three CSV lookup tables in `.claude/skills/cc-ingest/data/`:
 
-### CC Connected per-subject audios
+1. **`ccconnected-urls.csv`** — `Cycle,Week,Subject,URL,Title`. CC video URLs (`https://ccconnected.com/content/asset/fullScreen/<id>`) for each subject's memory work video. Populated once per cycle from a browser-console scrape (see chat history for the snippet that uses the learningPath endpoint).
 
-Lookup table at `.claude/skills/cc-ingest/data/ccconnected-audio-urls.csv` with columns `Cycle,Week,Subject,URL,Title,EmbedUrl`. The `EmbedUrl` is the direct `classicalconversations.widen.net` MP3 download URL — publicly fetchable, no CC Connected auth needed for the download itself.
+2. **`ccconnected-audio-urls.csv`** — `Cycle,Week,Subject,URL,Title,EmbedUrl`. The `EmbedUrl` is the direct `classicalconversations.widen.net` MP3 download URL — publicly fetchable, no auth needed for the download. One per-subject Memory Work Audio per week (~150–900 KB each, just that subject).
 
-These audios are CC Foundations' per-subject "Memory Work Audio" tracks (short, ~150–900 KB each — just that subject's memory work, not the whole week). They go to the **`Audio Files`** field. Per cycle this needs a one-time browser-console scrape (see the audio-feed snippet in the chat history); after that, the skill looks up + downloads + uploads automatically.
+3. **`ccconnected-sandbox-urls.csv`** — `Cycle,Week,AssetKey,EmbedId,WidenURL,Title`. Direct widen download URL for each week's Sandbox magazine PDF.
 
-> Fine Arts and Bible are not in CC's standard memory work audio set, so those rows will be missing from this CSV. Skip without warning for those two subjects.
+> Fine Arts and Bible are not in CC's standard set, so they're absent from CSV 1 and 2 by design. CSV 3 is per-week (not per-subject) — Bible and Fine Arts are skipped during the per-subject split anyway.
 
 ### Airtable schema (reference — confirmed live)
 
@@ -109,7 +115,9 @@ If the user said "C2W12" or "Cycle 2 Week 12", use that. If they said "hierdie w
 
 Use the Drive MCP to search for the week folder under `CC Inbox`. Match the folder name `C{cycle}W{week}` (zero-padded variants also OK, like `C2W08`). List files inside.
 
-If the folder doesn't exist or is empty, stop and tell the user.
+If the folder doesn't exist, ask the user whether to proceed with only the CC-Connected-driven fields (URLs + per-subject audios). If they say yes, skip Steps 3–7 and 8c–8d (the Drive-driven parts) and go straight to Step 8.
+
+If the folder exists but is empty, the CC-Connected steps still run. Tell the user the folder is empty and that you're proceeding with just CC URLs and per-subject audios.
 
 ### Step 3 — Download files to a temp directory
 
@@ -117,36 +125,32 @@ Create `/tmp/cc-ingest/C{cycle}W{week}/` and download every file into it. Keep o
 
 ### Step 4 — Classify files
 
-For each file, decide what it is. Use filename hints first, then content if needed:
+For each file, decide what it is. Filename hints first; if those are unhelpful, open and inspect.
 
-- **Sandbox PDF**: large multi-page PDF (>5 pages typically), filename often contains "sandbox" or a date. If unsure, open the first page with the `pdf` skill to check.
-- **Memory work source**: photo or single-page PDF showing the Q+A in a Guide layout. Typically smaller, often image (.jpg/.png) or 1-2 page PDF.
-- **Per-subject audio**: filename contains a subject name (history, science, latin, math, english, geography, timeline, "fine arts", bible). Use case-insensitive match.
-- **Intro audio**: filename starts with `intro` (matches the convention above).
-- **Subject-prefixed PDFs (already split)**: filename starts with a subject keyword, e.g. `history.pdf`. If these exist, skip the Sandbox split step.
+- **Sandbox PDF**: large multi-page PDF (>10 pages typically). Filename usually contains "sandbox". If unsure, open page 1 and check for "The SANDBOX" header.
+- **Bible PDF**: filename starts with `bible` (case-insensitive). Goes straight to Bible row's `PDFs` field, no splitting needed.
+- **Memory work source**: photo (.jpg/.png) or single-page PDF showing all subjects' Q+A in the CC Guide layout. Typically <2 MB and 1 page.
+- **Intro audios**: MP3/M4A/WAV files. Filenames are unreliable (iPhone Voice Memos defaults). All audios are routed to the transcription-based classifier in Step 7.
+- **`urls.txt`**: YouTube links per subject, handled in Step 8c.
+- **`notes.txt`** or other plain-text scratch files: ignored.
+- **Subject-prefixed PDFs (already split, e.g. `03_History.pdf`)**: rare; if present, skip the Sandbox split step and use these directly.
 
-If anything is ambiguous, ask the user one short question listing the candidates.
+If anything is genuinely ambiguous (e.g. a randomly-named PDF that's neither Sandbox nor Bible-prefixed), ask one short question listing the candidate uses.
 
-### Step 5 — Split the Sandbox PDF (always)
+### Step 5 — Sandbox: auto-fetch from CC + split per subject (always)
 
-Marnix's requirement: the Sandbox magazine must always be split per subject before upload. The CC Sandbox is structured as a magazine but contains clear per-subject pages mid-document (typically pp 15–42 across History, Science, Math, Latin, English, Geography, Timeline).
+The Sandbox magazine is **always** auto-fetched from CC Connected — Marnix doesn't need Clarinda to upload it. Use Drive only as fallback if the CC fetch fails.
 
-Workflow (used pypdf — already installed in `/tmp/cc-ingest/venv`):
+1. Look up the widen URL in `data/ccconnected-sandbox-urls.csv` for `(Cycle, Week)`.
+2. Download to `/tmp/cc-ingest/C{cycle}W{week}/sandbox.pdf` with curl. Typical size 5–30 MB.
+3. **Fallback**: if the CSV has no row OR the download fails, look for a Sandbox PDF in the Drive folder (large multi-page PDF whose page 1 says "The SANDBOX"). Use that instead. If neither source has it, skip the split with a warning.
+4. Read each page's text with the pypdf venv at `~/.cache/cc-ingest/venv/bin/python` and find subject markers — both heading-style ("HISTORY", "MATH", etc., usually all-caps on their own line) and topic phrasing ("Liquid Equivalents" = Math, "Industrial Revolution" = History, etc.). The same subject can span multiple non-contiguous pages.
+5. Tell the user the detected page ranges in one short summary, format `History: pp 18–19, 29–30  ·  Science: pp 9, 31–32  ·  Math: pp 37–40  ·  ...`. Proceed unless the ranges look obviously wrong.
+6. Write per-subject PDFs to `/tmp/cc-ingest/C{cycle}W{week}/split/` using pypdf. Filename convention matches Marnix's existing pattern: `NN_Subject_Topic.pdf` (e.g. `03_History_Industrial_Revolution.pdf`). Number prefix is fixed per subject:
+   - `03` History · `04` Science · `05` Math · `06` Latin · `07` English Grammar · `08` Geography · `09` Timeline
+7. Verify each split is under 5 MB (Airtable's `uploadAttachment` limit). If oversized, recommend manual upload via the Airtable web UI for that subject.
 
-1. Download the Sandbox PDF from Drive into `/tmp/cc-ingest/C{cycle}W{week}/sandbox.pdf`.
-2. Read each page's text and find subject markers (lines containing "HISTORY", "MATH", "SCIENCE", "LATIN", "ENGLISH", "GEOGRAPHY", "TIMELINE" as headings, plus topic phrasing like "Liquid Equivalents" = Math, "First Conjugation" = Latin, "Industrial Revolution" = History, etc.). Multi-page subject sections are common.
-3. Tell the user the detected page ranges in one short summary. Format: `History: pp 18–19, 29–30  ·  Science: pp 9, 31–32  ·  Math: pp 37–40  ·  ...`. Ask for confirmation only if ranges look wrong; otherwise proceed.
-4. Use pypdf via `/tmp/cc-ingest/venv/bin/python` to write per-subject PDFs to `/tmp/cc-ingest/C{cycle}W{week}/split/`. Filename convention matches Marnix's existing pattern: `NN_Subject_Topic.pdf` (e.g. `03_History_Industrial_Revolution.pdf`). Number prefix:
-   - `03` History
-   - `04` Science
-   - `05` Math
-   - `06` Latin
-   - `07` English (Indefinite Pronouns, etc.)
-   - `08` Geography
-   - `09` Timeline
-5. Verify each split is under 5 MB (Airtable uploadAttachment limit). If oversized, recommend the user upload manually via Airtable web UI (which has higher limits).
-
-Skip Bible and Fine Arts splits — Bible isn't on the Sandbox at all, and Fine Arts content in the Sandbox is just a brief mention in Morning Time Plans (not a standalone section). Fine Arts PDFs come from a separate source.
+Skip Bible and Fine Arts in the per-subject split — Bible isn't in the Sandbox, and the Sandbox's Fine Arts mention is only a one-line reference inside Morning Time Plans. Fine Arts and Bible PDFs come from separate sources (see Step 8d for Bible).
 
 ### Step 6 — Extract memory work
 
@@ -225,6 +229,16 @@ art, arts, fine art → Fine Arts                  bible → Bible
 ```
 
 Multiple lines per subject are combined (one URL per line) and written to that subject's `YouTube URLs` field. Existing content in that field is preserved unless `overwrite: true` is set.
+
+### Step 8d — Bible PDFs from Drive
+
+Bible content is Boersema-specific — CC has no per-week Bible material. The skill picks up any PDF in the week folder whose filename starts with `bible` (case-insensitive), e.g. `bible-week13.pdf`, `Bible Memory Work.pdf`, `bible_song.pdf`. Multiple Bible PDFs in one week are all attached.
+
+For each detected Bible PDF:
+1. Verify the file is <5 MB (Airtable limit). If larger, report it and tell the user to compress or upload manually.
+2. Add to the manifest as a `PDFs` attachment on the **Bible** subject.
+
+If no `bible*.pdf` files are present, skip Bible entirely — do NOT create the Bible row. (A row with no content makes the dashboard show Bible as available when it actually isn't.)
 
 ### Step 9 — Build the manifest
 
