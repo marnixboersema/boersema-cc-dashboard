@@ -56,7 +56,7 @@ const HEADERS = {
 // even though the network is fine (happy-eyeballs glitches between IPv4/IPv6
 // candidates). Retry transient network errors with exponential backoff and
 // give each attempt a clean timeout so a bad IP doesn't hang forever.
-async function fetchWithRetry(url, options = {}, { attempts = 4, timeoutMs = 15000 } = {}) {
+async function fetchWithRetry(url, options = {}, { attempts = 6, timeoutMs = 15000 } = {}) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     const ctrl = new AbortController();
@@ -96,6 +96,25 @@ async function findRecord(cycle, week, subject) {
   return data.records?.[0] || null;
 }
 
+async function createRecord(cycle, week, subject) {
+  const url = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent(TABLE)}`;
+  const r = await fetchWithRetry(url, {
+    method: 'POST',
+    headers: HEADERS,
+    body: JSON.stringify({
+      fields: { Cycle: cycle, Week: week, Subject: subject },
+    }),
+  });
+  if (!r.ok) {
+    const text = await r.text();
+    if (r.status === 401 || r.status === 403) {
+      throw new Error(`POST ${r.status}: PAT lacks data.records:write scope. ${text}`);
+    }
+    throw new Error(`POST ${r.status}: ${text}`);
+  }
+  return r.json();
+}
+
 async function patchFields(recordId, fields) {
   const url = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent(TABLE)}/${recordId}`;
   const r = await fetchWithRetry(url, {
@@ -132,7 +151,7 @@ async function uploadAttachment(recordId, fieldName, filePath, filename) {
       file: buf.toString('base64'),
       filename: name,
     }),
-  }, { attempts: 3, timeoutMs: 60000 });
+  }, { attempts: 6, timeoutMs: 60000 });
   if (!r.ok) {
     const text = await r.text();
     if (r.status === 401 || r.status === 403) {
@@ -163,7 +182,7 @@ function fieldHasContent(value) {
 }
 
 async function applyManifest(manifest) {
-  const { cycle, week, subjects, defaultOverwrite = false } = manifest;
+  const { cycle, week, subjects, defaultOverwrite = false, createIfMissing = true } = manifest;
   if (cycle == null || week == null || !subjects) {
     throw new Error('Manifest must have cycle, week, and subjects');
   }
@@ -172,11 +191,15 @@ async function applyManifest(manifest) {
   for (const [subject, spec] of Object.entries(subjects)) {
     const entry = { subject, actions: [], skipped: [], errors: [] };
     try {
-      const rec = await findRecord(cycle, week, subject);
+      let rec = await findRecord(cycle, week, subject);
       if (!rec) {
-        entry.errors.push(`Row C${cycle}W${week}-${subject} not found in Airtable`);
-        report.results.push(entry);
-        continue;
+        if (!createIfMissing) {
+          entry.errors.push(`Row C${cycle}W${week}-${subject} not found in Airtable`);
+          report.results.push(entry);
+          continue;
+        }
+        rec = await createRecord(cycle, week, subject);
+        entry.actions.push(`created row C${cycle}W${week}-${subject}`);
       }
       const overwrite = spec.overwrite ?? defaultOverwrite;
       const current = rec.fields || {};

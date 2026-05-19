@@ -35,6 +35,7 @@ Per week, a subfolder named like `C2W12` (Cycle 2 Week 12). Inside the week fold
 - A photo/scan/PDF of the CC Foundations Guide page for that week (contains all subjects' memory-work Q+A)
 - Audio files (MP3/M4A/WAV) — may be one per subject, may have generic names
 - One or more "intro audio" files (parent introducing the subject/week)
+- Optionally a `urls.txt` with YouTube/video links per subject (see below)
 - Optionally a `notes.txt` or similar with hand-written notes
 
 ### Intro audio convention
@@ -42,6 +43,22 @@ Per week, a subfolder named like `C2W12` (Cycle 2 Week 12). Inside the week fold
 - `intro.mp3` (or .m4a/.wav) → applied to all 9 subjects that have content
 - `intro-history.mp3`, `intro-science.mp3`, etc. → per-subject override
 - Both can coexist: the generic intro applies to subjects without a specific intro
+- Audio under 5 seconds is suspect — likely a test recording. Flag and ask the user before uploading.
+
+### urls.txt convention (for YouTube / extra videos)
+
+Optional plain-text file `urls.txt` in the week folder with one line per video, format `<subject>: <url>`. The skill parses each line and appends the URL to the matching subject's `YouTube URLs` field (which already supports multiple URLs, one per line).
+
+```
+history: https://youtu.be/abc123
+science: https://youtube.com/watch?v=xyz
+science: https://youtu.be/another  # multiple lines per subject allowed
+math: https://youtu.be/...
+```
+
+Subject names are case-insensitive and tolerant of dashboard names (`english grammar`, `english`, or `eng` all map to `English Grammar`). Lines starting with `#` are ignored as comments.
+
+MP4 files in the folder are NOT auto-uploaded — Airtable has no video attachment field and direct MP4s can exceed size limits. If Marnix wants a local video served, he should upload it to YouTube and paste the URL in `urls.txt`.
 
 ### CC Connected URLs
 
@@ -95,30 +112,45 @@ For each file, decide what it is. Use filename hints first, then content if need
 
 If anything is ambiguous, ask the user one short question listing the candidates.
 
-### Step 5 — Split the Sandbox PDF (if needed)
+### Step 5 — Split the Sandbox PDF (always)
 
-If a Sandbox PDF is present AND no per-subject PDFs exist yet, invoke the `pdf` skill to:
+Marnix's requirement: the Sandbox magazine must always be split per subject before upload. The CC Sandbox is structured as a magazine but contains clear per-subject pages mid-document (typically pp 15–42 across History, Science, Math, Latin, English, Geography, Timeline).
 
-1. Read the PDF and identify the page range for each of the 8 CC subjects (skip Bible — it's not in Sandbox). Use the table of contents if present; otherwise read section headings page by page.
-2. Tell the user the detected ranges in one short summary and ask for confirmation before splitting. Format: `History: pp 2–4, Science: pp 5–8, ...`.
-3. After confirmation, write per-subject PDFs to `/tmp/cc-ingest/C{cycle}W{week}/<subject>.pdf` with the original Sandbox page numbers preserved.
+Workflow (used pypdf — already installed in `/tmp/cc-ingest/venv`):
 
-If the PDF can't be split confidently (e.g. no clear subject headings), ask the user to provide page ranges manually.
+1. Download the Sandbox PDF from Drive into `/tmp/cc-ingest/C{cycle}W{week}/sandbox.pdf`.
+2. Read each page's text and find subject markers (lines containing "HISTORY", "MATH", "SCIENCE", "LATIN", "ENGLISH", "GEOGRAPHY", "TIMELINE" as headings, plus topic phrasing like "Liquid Equivalents" = Math, "First Conjugation" = Latin, "Industrial Revolution" = History, etc.). Multi-page subject sections are common.
+3. Tell the user the detected page ranges in one short summary. Format: `History: pp 18–19, 29–30  ·  Science: pp 9, 31–32  ·  Math: pp 37–40  ·  ...`. Ask for confirmation only if ranges look wrong; otherwise proceed.
+4. Use pypdf via `/tmp/cc-ingest/venv/bin/python` to write per-subject PDFs to `/tmp/cc-ingest/C{cycle}W{week}/split/`. Filename convention matches Marnix's existing pattern: `NN_Subject_Topic.pdf` (e.g. `03_History_Industrial_Revolution.pdf`). Number prefix:
+   - `03` History
+   - `04` Science
+   - `05` Math
+   - `06` Latin
+   - `07` English (Indefinite Pronouns, etc.)
+   - `08` Geography
+   - `09` Timeline
+5. Verify each split is under 5 MB (Airtable uploadAttachment limit). If oversized, recommend the user upload manually via Airtable web UI (which has higher limits).
+
+Skip Bible and Fine Arts splits — Bible isn't on the Sandbox at all, and Fine Arts content in the Sandbox is just a brief mention in Morning Time Plans (not a standalone section). Fine Arts PDFs come from a separate source.
 
 ### Step 6 — Extract memory work
 
-If a memory-work source file is present, read it (Read tool can read images directly) and extract the Q+A pairs per subject. The CC Guide layout typically has one page per week with all 8 subjects' "Tell me about..." questions and answers.
+If a memory-work source file is present (typically a photo of the CC Foundations Guide page for the week), read the image with the Read tool (which supports JPG/PNG) and extract the Q+A pairs per subject. The Guide layout has 8 subjects in a 3×3-ish grid across one page (no Bible).
 
-Build a per-subject text in this format:
+Marnix's existing pattern (matched in W11, W12, W13):
+- **Memory Work field**: just the subject name as a label, all-caps (e.g. `HISTORY`, `MATH`).
+- **Memory Work (Afrikaans) field**: the actual Q+A content. The dashboard renders this in italic styling — even though the user has chosen English-only content, the italic field is used for body text.
+
+Build the (Afrikaans) text as a multi-line block. Example for History:
 
 ```
 Tell me about <topic>.
 <answer paragraph>
 ```
 
-Put this in the `Memory Work` field. Leave `Memory Work (Afrikaans)` empty — the user has chosen English-only for now.
+For subjects with table data (Math Liquid Equivalents, Latin endings, Geography lists), preserve the table structure with line breaks.
 
-If memory work extraction is uncertain for any subject, include only the ones you're confident about and report the rest as missing.
+If memory work extraction is uncertain for any subject, include only the ones you're confident about and report the rest as missing. Do NOT invent content not visibly on the page.
 
 ### Step 7 — Match audio to subjects
 
@@ -138,6 +170,8 @@ Construct a JSON manifest matching the format documented in `scripts/airtable-up
 
 Default `defaultOverwrite: false` — the helper will skip fields that already have content. If the user explicitly asks to overwrite (e.g. "vervang die memory work"), set `overwrite: true` on the affected subjects.
 
+Default `createIfMissing: true` — if a row for `C{cycle}W{week}-{subject}` doesn't yet exist in Airtable, the helper creates it with the right Cycle/Week/Subject and then proceeds. Set to `false` only if you want to fail loudly when rows are missing.
+
 ### Step 10 — Apply
 
 Run the helper with the env vars from `.env`:
@@ -147,7 +181,7 @@ set -a; source .env; set +a
 node .claude/skills/cc-ingest/scripts/airtable-upload.mjs apply /tmp/cc-ingest/C{cycle}W{week}-manifest.json
 ```
 
-Capture the JSON report.
+Capture the JSON report. If any subject reports `fetch failed` (Node 24's fetch occasionally glitches against `content.airtable.com` for attachment uploads), re-run the same `apply` — the helper is idempotent and will skip everything that already succeeded.
 
 ### Step 11 — Report
 
@@ -166,7 +200,6 @@ Mention any errors verbatim from the report.
 
 ## Things to avoid
 
-- Do not create new Airtable rows. All 576 rows already exist (or should). If a row is missing, report it — do not create it.
 - Do not overwrite existing field content unless the user explicitly asks.
 - Do not upload files >5 MB (Airtable's uploadAttachment limit). If a file is too big, report it and ask the user how to proceed (compress, or skip).
 - Do not commit the Drive temp files into the repo. They live under `/tmp/`.
