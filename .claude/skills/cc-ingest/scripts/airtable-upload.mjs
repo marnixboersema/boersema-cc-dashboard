@@ -36,6 +36,14 @@
 
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { setDefaultResultOrder } from 'node:dns';
+
+// Node 24's fetch uses happy-eyeballs (IPv4 + IPv6 in parallel). On networks
+// without working IPv6, the IPv6 attempts return EHOSTUNREACH and the IPv4
+// candidates sometimes time out too — the request fails even though curl to
+// the same host succeeds instantly. Forcing IPv4-first resolves Airtable
+// hostnames directly to working IPs and skips the IPv6 dead end.
+setDefaultResultOrder('ipv4first');
 
 const PAT = process.env.AIRTABLE_PAT;
 const BASE = process.env.AIRTABLE_BASE_ID;
