@@ -42,6 +42,11 @@ function stopIntroAudio() {
 async function loadLessons() {
   try {
     const res = await fetch('/api/lessons');
+    if (res.status === 401) {
+      // Session expired or missing — reload so the middleware shows the login page.
+      window.location.reload();
+      return;
+    }
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`API error ${res.status}: ${text}`);
@@ -207,7 +212,7 @@ function renderHome() {
 
   const header = el('header', { class: 'home-header' },
     el('div', {},
-      el('h1', { class: 'school-title' }, 'BOERSEMA SKOOL'),
+      el('h1', { class: 'school-title' }, 'CC Dashboard'),
       el('p', { class: 'cycle-week' },
         'Cycle ', el('strong', {}, String(state.cycle)),
         ' · Week ', el('strong', {}, String(state.week).padStart(2, '0'))

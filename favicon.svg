@@ -2,20 +2,8 @@
   <!-- Background: rounded square in CC accent blue -->
   <rect width="32" height="32" rx="7" fill="#1B4D7E"/>
 
-  <!-- Open book: left page -->
-  <path d="M5 10 Q5 9 6 9 L14 9.5 L14 23 L6 22.5 Q5 22.5 5 21.5 Z" fill="white"/>
-  <!-- Open book: right page -->
-  <path d="M18 9.5 L26 9 Q27 9 27 10 L27 21.5 Q27 22.5 26 22.5 L18 23 Z" fill="white"/>
-  <!-- Spine highlight -->
-  <path d="M14 9.5 L14 23 Q15.5 22 16 22 Q16.5 22 18 23 L18 9.5 Q16.5 8.5 14 9.5 Z" fill="#E8E0F0"/>
-
-  <!-- Lines on left page -->
-  <line x1="7"  y1="13" x2="12.5" y2="13.2" stroke="#1B4D7E" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
-  <line x1="7"  y1="16" x2="12.5" y2="16.2" stroke="#1B4D7E" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
-  <line x1="7"  y1="19" x2="12.5" y2="19.1" stroke="#1B4D7E" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
-
-  <!-- Lines on right page -->
-  <line x1="19.5" y1="13.2" x2="25" y2="13" stroke="#1B4D7E" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
-  <line x1="19.5" y1="16.2" x2="25" y2="16" stroke="#1B4D7E" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
-  <line x1="19.5" y1="19.1" x2="25" y2="19" stroke="#1B4D7E" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
+  <!-- "CC" monogram -->
+  <text x="16" y="22" text-anchor="middle"
+    font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+    font-weight="800" font-size="16" letter-spacing="-1" fill="white">CC</text>
 </svg>

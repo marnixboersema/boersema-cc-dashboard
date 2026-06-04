@@ -1,6 +1,6 @@
 {
-  "name": "Boersema Skool",
-  "short_name": "Skool",
+  "name": "CC Dashboard",
+  "short_name": "CC Dashboard",
   "display": "standalone",
   "start_url": "/",
   "background_color": "#FAF7F2",

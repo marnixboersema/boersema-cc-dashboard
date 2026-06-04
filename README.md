@@ -5,13 +5,44 @@
 ## Argitektuur
 
 ```
-[Airtable basis]  →  [Vercel serverless proxy]  →  [Vanilla JS dashboard]  →  [iPad Safari]
+[Besoeker]  →  [middleware.js: wagwoord-slot]  →  [Vanilla JS dashboard]
+                                                          ↑
+                    [Airtable basis]  →  [Vercel serverless proxy (api/lessons.js)]
 ```
 
-- Geen build-stap, geen npm install, geen framework
+- Geen build-stap, geen framework
 - Een statiese front-end (`index.html` + `style.css` + `app.js`)
 - Een serverless funksie (`api/lessons.js`) wat Airtable se PAT bewaak
 - Airtable PAT word **nooit** aan die browser blootgestel nie
+- 'n Edge-middleware (`middleware.js`) sluit die **hele** webwerf agter een gedeelde wagwoord
+- Een klein afhanklikheid (`@vercel/functions`) word deur Vercel outomaties geïnstalleer
+
+## Toegang: wagwoord-slot
+
+Die hele dashboard sit agter **een gedeelde wagwoord** (geen gebruikersnaam). Enigeen
+met die wagwoord kan dit oor die internet gebruik; sonder die wagwoord word **niks**
+gewys nie — nie die bladsy, die kode, óf die Airtable-data nie.
+
+Hoe dit werk:
+
+- `middleware.js` loop op Vercel se rand **voor elke versoek** (statiese lêers én `/api/*`).
+- Sonder 'n geldige sessie-koekie wys dit die aanmeldbladsy (of `401` vir die API).
+- Die wagwoord lewe **net** in die `DASHBOARD_PASSWORD`-omgewingsveranderlike op Vercel —
+  dit word nooit in die kode gestoor of na die browser gestuur nie.
+- Ná korrekte aanmelding word 'n ondertekende, `HttpOnly`/`Secure`-koekie gestel wat
+  30 dae hou. Die handtekening gebruik die wagwoord as sleutel, so wanneer jy die
+  wagwoord verander, word **alle** bestaande sessies dadelik ongeldig.
+
+### Wagwoord stel of verander
+
+1. Gaan na jou Vercel-projek → **Settings → Environment Variables**.
+2. Stel (of redigeer) `DASHBOARD_PASSWORD` na die wagwoord wat jy wil hê.
+3. Klik **Redeploy** (of `git push`) sodat die nuwe waarde in werking tree.
+
+> As `DASHBOARD_PASSWORD` ontbreek, weier die middleware **alle** toegang (faal-toe),
+> sodat die dashboard nooit per ongeluk oop is nie.
+
+Om handmatig af te meld: gaan na `/logout`.
 
 ## 1. Airtable-basis opstel
 
@@ -88,6 +119,7 @@ Dit hardloop op `http://localhost:3000`.
 4. By **Environment Variables**, voeg in:
    - `AIRTABLE_PAT` — jou PAT
    - `AIRTABLE_BASE_ID` — jou basis-ID
+   - `DASHBOARD_PASSWORD` — die gedeelde wagwoord wat die dashboard sluit
 5. Klik **Deploy**
 
 Na deployment kry jy 'n URL soos `boersema-cc-dashboard.vercel.app`. Voeg gerus 'n eie domein by (bv. `skool.boersema.co.za`) onder Vercel se "Domains"-paneel.
@@ -137,8 +169,11 @@ Die skill **oorskryf nie** bestaande Airtable-velde nie — vra eksplisiet "verv
 ```
 boersema-cc-dashboard/
 ├── api/
-│   └── lessons.js                              # Vercel proxy na Airtable
-├── .claude/skills/cc-ingest/                   # Skill vir Drive → Airtable ingestion
+│   └── lessons.js                # Vercel serverless proxy na Airtable
+├── lib/
+│   └── auth.js                   # Sessie-token logika (Web Crypto, geen geheime in die lêer)
+├── middleware.js                 # Wagwoord-slot voor elke versoek
+├── .claude/skills/cc-ingest/     # Skill vir Drive → Airtable ingestion
 │   ├── SKILL.md
 │   ├── scripts/airtable-upload.mjs
 │   └── data/ccconnected-urls.csv
@@ -146,6 +181,7 @@ boersema-cc-dashboard/
 ├── style.css
 ├── app.js
 ├── vercel.json
+├── package.json        # "type": module + @vercel/functions
 ├── .env.example
 ├── .gitignore
 └── README.md
